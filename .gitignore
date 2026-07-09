@@ -1,0 +1,3 @@
+# Backups die het fix-script naast de configs maakt
+*.bak
+*.bak-*
