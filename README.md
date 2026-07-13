@@ -1,8 +1,33 @@
-# Fusion 360 op Linux — UI-crash fix
+# Fusion 360 op Linux — installer met fixes
 
-Autodesk Fusion 360 draait op mijn machine via de
+Autodesk Fusion 360 draait via de
 [cryinkfly Wine-installer](https://github.com/cryinkfly/Autodesk-Fusion-360-for-Linux)
-(install root: `~/.autodesk_fusion`). Bij het opstarten liep het steeds vast.
+(install root: `~/.autodesk_fusion`). Twee dingen gingen daarbij mis; deze repo lost ze op
+en kan Fusion in één keer voor je installeren.
+
+## Installeren (in één keer, mét de fixes)
+
+```bash
+git clone https://github.com/JDJelectronics/fusion360-linux-fix.git
+cd fusion360-linux-fix
+./install.sh
+```
+
+Dat draait de setup wizard van cryinkfly (**ongewijzigd**, meegeleverd in `vendor/`, v2.1.5-Alpha,
+MIT) en koppelt daarna meteen je Desktop en Documents goed. Na de eerste start van Fusion draai
+je nog één keer `./fix-fusion-ui-renderer.sh` — waarom dat niet eerder kan, staat hieronder.
+
+Andere Wine-modus? `./install.sh --install` of `./install.sh --proton=9.0`.
+Standaard is `--install-fix` (de custom Wine-build), want daar is dit op getest.
+
+> **Waarom de installer meegeleverd is en niet gedownload.** De `main`-branch van cryinkfly staat
+> op v2.0.7-Alpha, ouder dan de v2.1.5-Alpha waarop dit getest is. Een vaste, meegeleverde kopie
+> geeft een reproduceerbare installatie in plaats van "wat er die dag toevallig op main stond".
+> Het bestand is niet aangepast; alle fixes worden er ná de installatie overheen gedraaid.
+
+## De opstart-crash (UI-renderer)
+
+Bij het opstarten liep Fusion steeds vast.
 
 ## Het probleem
 
@@ -94,3 +119,11 @@ Daarna kies je in Fusion's exportdialoog gewoon **Desktop** of **Documents**.
 - HP ProDesk 400 G5 · Intel UHD 630 (Mesa) · Ubuntu
 - Wine-modus: `Wine-fix` (custom build in `~/fusion-wine-build`)
 - DXVK geïnstalleerd in de prefix (d3d11/dxgi/d3d9)
+
+## Herkomst en licentie
+
+De installer in `vendor/` is werk van **Steve Zabka (cryinkfly)**, MIT-licentie,
+copyright (c) 2020-2026 — ongewijzigd meegeleverd, met licentie in `vendor/LICENSE`.
+Upstream: https://github.com/cryinkfly/Autodesk-Fusion-360-for-Linux
+
+De fix-scripts en `install.sh` in deze repo zijn eigen werk.
