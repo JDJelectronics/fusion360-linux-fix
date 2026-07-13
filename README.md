@@ -48,13 +48,46 @@ GPU-versneld (Dx11/DXVK), dus tekenwerk wordt er niet trager van.
 ```
 
 Het script:
-- vindt automatisch alle `NMachineSpecificOptions.xml` in de wineprefix;
+- doorzoekt de **hele** gebruikersmap in de wineprefix naar `NMachineSpecificOptions.xml`;
 - past **alleen** de UI-renderer aan (het 3D-canvas blijft ongemoeid);
 - maakt van elk gewijzigd bestand eerst een backup (`*.bak-<renderer>`);
 - weigert te draaien zolang Fusion nog open is.
 
 Andere install-locatie? Geef het pad mee als 2e argument:
 `./fix-fusion-ui-renderer.sh Software /pad/naar/.autodesk_fusion`
+
+> **Eerdere versie miste een bestand.** Tot juli 2026 keek het script alleen in `AppData/`.
+> Fusion bewaart óók een config onder `Application Data/` — normaal een symlink naar
+> `AppData/Roaming`, maar `winetricks sandbox` sloopt die symlink, waarna Fusion er een
+> echte map van maakt. Dat bestand bleef daardoor op de crashende `OpenGL`-waarde staan.
+> Draai het script opnieuw als je van een oudere versie komt.
+
+## Tweede fix: Desktop en Documents komen niet in je home terecht
+
+Zelfde oorzaak, ander gevolg. `winetricks -q sandbox` verbreekt Wine's desktop-integratie:
+`Desktop` en `Documents` worden lege mappen *binnen* het prefix, los van je echte home.
+De installer herstelt daarna alleen `Downloads` — en wijst die naar zijn **eigen** installermap:
+
+```bash
+ln -s "$SELECTED_DIRECTORY/downloads" "$WIN_DOWNLOADS_DIRECTORY"
+```
+
+Exporteer je een STL, dan opent de dialoog in Downloads en belandt je bestand in
+`~/.autodesk_fusion/downloads/` — tussen de `FusionClientInstaller.exe` van 1,5 GB. In je
+bestandsbeheerder zie je het nooit terug.
+
+```bash
+./fix-fusion-home-folders.sh
+```
+
+Koppelt `Desktop` en `Documents` terug aan je echte home-mappen (via `xdg-user-dir`, dus ook
+goed als je map `Bureaublad` heet). `Downloads` blijft **bewust ongemoeid**: de installer
+gebruikt die map zelf, en hem omleggen kan een update-run breken.
+
+Opruimen gebeurt met `rmdir`, niet `rm -rf` — die weigert op een niet-lege map, dus er kan
+nooit per ongeluk werk verdwijnen. Veilig om vaker te draaien.
+
+Daarna kies je in Fusion's exportdialoog gewoon **Desktop** of **Documents**.
 
 ## Machine waar dit op draait
 

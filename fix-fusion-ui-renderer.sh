@@ -54,10 +54,14 @@ import os, re, shutil
 renderer = os.environ["RENDERER"]
 prefix   = os.environ["PREFIX"]
 
-# Fusion bewaart deze config onder verschillende AppData-locaties; we passen ze allemaal aan.
+# Fusion bewaart deze config op meerdere plekken. Eerder keken we alleen in AppData/,
+# maar dat mist "Application Data/": winetricks sandbox sloopt de symlink die daar normaal
+# naar AppData/Roaming wijst, waarna Fusion er een ECHTE map van maakt met een eigen config.
+# Die bleef zo op de crashende OpenGL-waarde staan. We doorzoeken nu de hele gebruikersmap.
 base_candidates = []
-for user_dir in os.listdir(os.path.join(prefix, "drive_c", "users")):
-    base_candidates.append(os.path.join(prefix, "drive_c", "users", user_dir, "AppData"))
+users_root = os.path.join(prefix, "drive_c", "users")
+for user_dir in os.listdir(users_root):
+    base_candidates.append(os.path.join(users_root, user_dir))
 
 files = []
 for base in base_candidates:
