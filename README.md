@@ -105,14 +105,22 @@ bestandsbeheerder zie je het nooit terug.
 ./fix-fusion-home-folders.sh
 ```
 
-Koppelt `Desktop` en `Documents` terug aan je echte home-mappen (via `xdg-user-dir`, dus ook
-goed als je map `Bureaublad` heet). `Downloads` blijft **bewust ongemoeid**: de installer
-gebruikt die map zelf, en hem omleggen kan een update-run breken.
+Koppelt `Desktop`, `Documents` **en `Downloads`** terug aan je echte home-mappen (via
+`xdg-user-dir`, dus ook goed als je map `Bureaublad` heet).
+
+`Downloads` is de belangrijkste van de drie: Fusion's exportdialoog opent daar standaard.
+Koppel je alleen Desktop en Documents, dan moet je bij **elke** export handmatig wegnavigeren
+— en dat vergeet je. Omleggen is veilig: de installer heeft die koppeling alleen *tijdens*
+het installeren nodig om zijn eigen `.exe`-bestanden te draaien
+([regel 1671](https://github.com/cryinkfly/Autodesk-Fusion-360-for-Linux)). Daarna leest niets
+hem meer.
+
+> Draai dit script **ná** de installatie, nooit ertijdens. Herinstalleer of update je Fusion,
+> dan zet de wizard zijn eigen Downloads-koppeling terug — draai het script daarna gewoon
+> opnieuw.
 
 Opruimen gebeurt met `rmdir`, niet `rm -rf` — die weigert op een niet-lege map, dus er kan
 nooit per ongeluk werk verdwijnen. Veilig om vaker te draaien.
-
-Daarna kies je in Fusion's exportdialoog gewoon **Desktop** of **Documents**.
 
 ## Machine waar dit op draait
 

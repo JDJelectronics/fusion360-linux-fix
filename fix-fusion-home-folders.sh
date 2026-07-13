@@ -5,14 +5,21 @@
 #
 # Problem: the wizard runs `winetricks sandbox`, which strips Wine's desktop
 # integration. Desktop and Documents end up as empty directories inside the
-# prefix with no connection to your real home folders, so anything Fusion
-# exports there is invisible to your file manager. Downloads, meanwhile, is
+# prefix with no connection to your real home folders. Downloads, meanwhile, is
 # pointed at the wizard's own payload directory -- which is why STL exports
 # land next to a 1.5 GB FusionClientInstaller.exe.
 #
-# This script re-links Desktop and Documents to your real home folders.
-# It deliberately leaves Downloads alone: the wizard uses that directory,
-# and repointing it can break an update run.
+# This script re-links Desktop, Documents AND Downloads to your real home folders.
+#
+# Downloads matters most: Fusion's export dialog opens there by default, so
+# without this you have to navigate away from it on every single export.
+# Repointing it is safe -- the wizard only needs that link *during* the install,
+# to run its own .exe payloads (autodesk_fusion_installer.sh:1671). Once Fusion
+# is installed, nothing reads it again.
+#
+# Caveat: re-running the wizard (e.g. to update Fusion) recreates its own
+# Downloads link and undoes this. Just run this script again afterwards.
+# Run this script AFTER the wizard, never during.
 #
 # Safe to run more than once.
 
@@ -30,8 +37,9 @@ fi
 
 REAL_DESKTOP="$(xdg-user-dir DESKTOP 2>/dev/null || echo "$HOME/Desktop")"
 REAL_DOCUMENTS="$(xdg-user-dir DOCUMENTS 2>/dev/null || echo "$HOME/Documents")"
+REAL_DOWNLOADS="$(xdg-user-dir DOWNLOAD 2>/dev/null || echo "$HOME/Downloads")"
 
-for pair in "Desktop:$REAL_DESKTOP" "Documents:$REAL_DOCUMENTS"; do
+for pair in "Desktop:$REAL_DESKTOP" "Documents:$REAL_DOCUMENTS" "Downloads:$REAL_DOWNLOADS"; do
     name="${pair%%:*}"
     target="${pair#*:}"
     link="$WIN_USER_DIR/$name"
@@ -60,5 +68,6 @@ for pair in "Desktop:$REAL_DESKTOP" "Documents:$REAL_DOCUMENTS"; do
 done
 
 echo
-echo "Done. In Fusion's export dialog, pick Desktop or Documents and the file"
-echo "will appear in your real home folder."
+echo "Done. Fusion's export dialog opens in Downloads by default, which now points"
+echo "at your real ~/Downloads -- so exports land where you can find them without"
+echo "changing anything. Desktop and Documents work too."
