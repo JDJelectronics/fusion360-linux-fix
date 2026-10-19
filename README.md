@@ -18,7 +18,8 @@ MIT) en past er alle fixes omheen toe:
 
 1. haalt vooraf de update-vraag uit de Wine-build (anders schiet Enter de wizard af);
 2. laat Fusion's interface zonder GPU tekenen (tegen "Not Responding" na het inloggen);
-3. koppelt Desktop, Documents en Downloads aan je echte home-mappen.
+3. koppelt Desktop, Documents en Downloads aan je echte home-mappen;
+4. zet het 3D-canvas op DXVK in plaats van Wine's OpenGL (veel sneller op Intel).
 
 Daarna is er geen losse stap meer nodig. Start Fusion altijd via de launcher
 (menu-item **Autodesk Fusion** of `~/.autodesk_fusion/bin/autodesk_fusion_launcher.sh`).
@@ -183,6 +184,30 @@ hem meer.
 Opruimen gebeurt met `rmdir`, niet `rm -rf` — die weigert op een niet-lege map, dus er kan
 nooit per ongeluk werk verdwijnen. Veilig om vaker te draaien.
 
+## Fix 4: Fusion is traag (3D-canvas op OpenGL)
+
+Voor **Intel**-GPU's kiest de wizard altijd de "OpenGL fallback": hij slaat DXVK over en zet
+`driverOptionId=VirtualDeviceGLCore` in de config. Het 3D-canvas loopt dan via Wine's
+OpenGL-pad, en dat is merkbaar trager. Elke Intel-GPU met een Mesa Vulkan-driver kan gewoon
+DXVK draaien.
+
+```bash
+# Fusion eerst helemaal afsluiten, daarna:
+./fix-fusion-dxvk.sh            # DXVK (Dx11 -> Vulkan)
+./fix-fusion-dxvk.sh --revert   # terug naar OpenGL
+```
+
+Het script doet wat de wizard voor NVIDIA/AMD wel doet: `winetricks -q dxvk`, de overrides
+uit de `DXVK.reg` van de wizard (d3d11/dxgi/d3d10core native, d3d9 builtin) en
+`driverOptionId=VirtualDeviceDx11` in elke config. Backups: `user.reg` en de d3d-DLL's in
+`~/.autodesk_fusion/backup-voor-dxvk/`, elke config als `*.bak-voor-dxvk`.
+
+Of het werkt, zie je aan de geladen DLL's: met DXVK komen `d3d11.dll` en `dxgi.dll` uit de
+`system32` van de prefix, niet uit de Wine-build.
+
+> **Nog steeds traag?** Kijk eerst met `top` wat je CPU doet. Een render of build op de
+> achtergrond trekt alle cores leeg, en Fusion onder Wine merkt dat direct.
+
 ## Machines waar dit op draait
 
 - HP ProDesk 400 G5 · Intel UHD 630 (Mesa) · Ubuntu
@@ -192,7 +217,8 @@ nooit per ongeluk werk verdwijnen. Veilig om vaker te draaien.
 En (oktober 2026, Fusion 2702):
 
 - Intel Iris Plus 655 (Mesa) · Ubuntu 26.04 · Wine-fix 11.10
-- De installer kiest hier `VirtualDeviceGLCore` (OpenGL) voor het 3D-canvas
+- De installer kiest hier `VirtualDeviceGLCore` (OpenGL) voor het 3D-canvas; met fix 4
+  (DXVK 3.1.1) is hij merkbaar sneller
 
 ## Herkomst en licentie
 

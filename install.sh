@@ -16,6 +16,9 @@
 #      De wizard draait 'winetricks -q sandbox', wat Wine's desktop-integratie sloopt.
 #      Zonder deze fix verdwijnen je STL-exports in ~/.autodesk_fusion/downloads/.
 #
+#   3. (niet bij --proton) Het 3D-canvas via DXVK in plaats van Wine's OpenGL.
+#      De wizard kiest voor Intel altijd OpenGL, en dat is merkbaar trager.
+#
 # Gebruik:
 #   ./install.sh                 # Wine-fix modus (aanbevolen, zoals getest)
 #   ./install.sh --install       # standaard systeem-Wine
@@ -93,6 +96,15 @@ echo "── Desktop, Documents en Downloads koppelen aan je echte home-mappen �
 echo
 echo "── Fusion-interface zonder GPU (tegen 'Not Responding') ──"
 "$HERE/fix-fusion-webengine-gpu.sh" "$FUSION_ROOT"
+
+# --- 4. 3D-canvas via DXVK ---------------------------------------------------
+# Kan pas nu: de wizard heeft Fusion aan het eind zelf gestart en is pas klaar als
+# Fusion weer dicht is. Bij Proton zit de prefix elders; daar slaan we dit over.
+if [[ "$MODE" != --proton* ]]; then
+    echo
+    echo "── 3D-canvas via DXVK (sneller dan OpenGL) ──"
+    "$HERE/fix-fusion-dxvk.sh" "$FUSION_ROOT"
+fi
 
 cat <<EOF
 
