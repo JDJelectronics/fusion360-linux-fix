@@ -3,15 +3,18 @@
 # install.sh -- Autodesk Fusion 360 op Linux, in één keer, met de fixes er direct in.
 #
 # Draait de setup wizard van cryinkfly (ongewijzigd, meegeleverd in vendor/) en past
-# daarna de twee fixes toe die deze repo beschrijft:
+# de fixes toe die deze repo beschrijft:
 #
-#   1. Desktop en Documents terugkoppelen aan je echte home-mappen.
+#   0. (alleen --install-fix) De Wine-build vooraf uitpakken en de update-vraag eruit
+#      halen. Die vraag ("outdated version? [Y/n]") schiet op Enter de wizard af.
+#
+#   1. Fusion's interface (QtWebEngine) zonder GPU laten tekenen, tegen de hang
+#      ("Not Responding") na het inloggen. Geldt al voor de eerste start vanuit de
+#      wizard, en wordt daarna vast in de launcher gezet.
+#
+#   2. Desktop, Documents en Downloads terugkoppelen aan je echte home-mappen.
 #      De wizard draait 'winetricks -q sandbox', wat Wine's desktop-integratie sloopt.
 #      Zonder deze fix verdwijnen je STL-exports in ~/.autodesk_fusion/downloads/.
-#
-#   2. De UI-renderer op Software zetten (tegen de opstart-crash).
-#      Dit kan pas NA de eerste start van Fusion: het configbestand bestaat dan pas.
-#      Het script vertelt je aan het eind wat je moet doen.
 #
 # Gebruik:
 #   ./install.sh                 # Wine-fix modus (aanbevolen, zoals getest)
@@ -57,34 +60,51 @@ echo "Dit duurt lang (grote downloads) en vraagt onderweg om je sudo-wachtwoord.
 read -rp "Doorgaan? [j/N] " ok
 case "$ok" in [jJyY]*) ;; *) echo "Afgebroken."; exit 0 ;; esac
 
+# --- 0. Wine-build zonder update-vraag ---------------------------------------
+# De wizard pakt de build uit en roept meteen 'wineboot --init' aan, dus er zit geen
+# moment tussen om te fixen. Daarom pakken we hem hier vooraf uit; de wizard slaat
+# downloaden en uitpakken over zodra bin/wine bestaat. Zelfde URL als de wizard.
+WINE_BUILD_DIR="$HOME/fusion-wine-build"
+if [ "$MODE" = "--install-fix" ]; then
+    if [ ! -x "$WINE_BUILD_DIR/bin/wine" ]; then
+        WINE_BUILD_URL="$(grep -o 'https://[^"]*/fusion-wine-build\.tar\.gz' "$INSTALLER" | head -n 1)"
+        WINE_BUILD_TAR="$FUSION_ROOT/downloads/fusion-wine-build.tar.gz"
+        echo "── Fusion Wine-build downloaden ──"
+        mkdir -p "$FUSION_ROOT/downloads"
+        [ -f "$WINE_BUILD_TAR" ] || curl -fL "$WINE_BUILD_URL" -o "$WINE_BUILD_TAR"
+        tar -xf "$WINE_BUILD_TAR" -C "$HOME"
+    fi
+    "$HERE/fix-wine-build-prompt.sh" "$WINE_BUILD_DIR"
+fi
+
 # --- 1. De wizard -----------------------------------------------------------
+# De wizard start Fusion aan het eind zelf op; met deze variabele hangt die eerste
+# start ook niet. Stap 3 zet hem daarna vast in de launcher.
+export QTWEBENGINE_CHROMIUM_FLAGS="--disable-gpu --disable-gpu-compositing"
 "$INSTALLER" "$MODE" "$FUSION_ROOT"
 
 # --- 2. Home-mappen terugkoppelen -------------------------------------------
 # Kan direct: de wineprefix bestaat nu.
 echo
-echo "── Desktop en Documents koppelen aan je echte home-mappen ──"
+echo "── Desktop, Documents en Downloads koppelen aan je echte home-mappen ──"
 "$HERE/fix-fusion-home-folders.sh" "$FUSION_ROOT/wineprefixes/default"
 
-# --- 3. UI-renderer ---------------------------------------------------------
-# Kan NIET direct: NMachineSpecificOptions.xml wordt pas bij de eerste start van
-# Fusion aangemaakt. Daarom hier alleen instructies, geen loze poging.
+# --- 3. Interface zonder GPU, vast in de launcher -----------------------------
+echo
+echo "── Fusion-interface zonder GPU (tegen 'Not Responding') ──"
+"$HERE/fix-fusion-webengine-gpu.sh" "$FUSION_ROOT"
+
 cat <<EOF
 
 ════════════════════════════════════════════════════════
- Installatie klaar. Nog één stap.
+ Installatie klaar.
 ════════════════════════════════════════════════════════
 
-De UI-renderer-fix kan pas NA de eerste start van Fusion: het configbestand
-dat aangepast moet worden, bestaat nu nog niet.
+Start Fusion via het menu (Autodesk Fusion) of:
 
-  1. Start Fusion 360 (menu, of ~/.autodesk_fusion/bin/autodesk_fusion_launcher.sh)
-  2. Log in en sluit Fusion daarna helemaal af
-  3. Draai:
+    $FUSION_ROOT/bin/autodesk_fusion_launcher.sh
 
-       $HERE/fix-fusion-ui-renderer.sh
-
-Crasht Fusion al bij die eerste start, dan is dat precies de bug die stap 3
-oplost -- sluit hem af (of kill hem) en draai het script alsnog.
+Gebruik voortaan altijd de launcher: daar staat de fix tegen de hang na het
+inloggen in. Het andere menu-item dat Wine zelf aanmaakt, start Fusion zonder.
 
 EOF

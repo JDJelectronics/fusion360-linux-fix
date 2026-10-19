@@ -14,8 +14,18 @@ cd fusion360-linux-fix
 ```
 
 Dat draait de setup wizard van cryinkfly (**ongewijzigd**, meegeleverd in `vendor/`, v2.1.5-Alpha,
-MIT) en koppelt daarna meteen je Desktop en Documents goed. Na de eerste start van Fusion draai
-je nog één keer `./fix-fusion-ui-renderer.sh` — waarom dat niet eerder kan, staat hieronder.
+MIT) en past er alle fixes omheen toe:
+
+1. haalt vooraf de update-vraag uit de Wine-build (anders schiet Enter de wizard af);
+2. laat Fusion's interface zonder GPU tekenen (tegen "Not Responding" na het inloggen);
+3. koppelt Desktop, Documents en Downloads aan je echte home-mappen.
+
+Daarna is er geen losse stap meer nodig. Start Fusion altijd via de launcher
+(menu-item **Autodesk Fusion** of `~/.autodesk_fusion/bin/autodesk_fusion_launcher.sh`).
+
+> **Ubuntu 26.04.** De wizard meldt *"Your Linux distribution and version are not supported"*.
+> In `--install-fix`-modus is dat onschuldig: hij gebruikt dan zijn eigen Wine-build, niet die
+> van het systeem, en gaat gewoon door.
 
 Andere Wine-modus? `./install.sh --install` of `./install.sh --proton=9.0`.
 Standaard is `--install-fix` (de custom Wine-build), want daar is dit op getest.
@@ -25,11 +35,62 @@ Standaard is `--install-fix` (de custom Wine-build), want daar is dit op getest.
 > geeft een reproduceerbare installatie in plaats van "wat er die dag toevallig op main stond".
 > Het bestand is niet aangepast; alle fixes worden er ná de installatie overheen gedraaid.
 
-## De opstart-crash (UI-renderer)
+## Fix 1: de installer wordt halverwege afgeschoten
+
+De Wine-build die `--install-fix` downloadt (`~/fusion-wine-build`) heeft een `bin/wineboot`
+die bij `wineboot --init` vraagt:
+
+```
+You are using an outdated version. Use the up-to-date version? [Y/n]
+```
+
+Standaard is **Y**. Enter opent een webpagina en doet `kill $PPID` — dat is de wizard zelf.
+Je ziet dan alleen `Terminated` en een half geïnstalleerde prefix.
+
+```bash
+./fix-wine-build-prompt.sh
+```
+
+vervangt die wrapper door een doorgeefluik naar `wineboot-bin` (hetzelfde als `n` antwoorden);
+het origineel blijft staan als `wineboot.orig-met-updatevraag`. Omdat de wizard de build uitpakt
+en meteen `wineboot --init` draait, pakt `install.sh` de build **vooraf** uit en fixt hem dan.
+De wizard slaat downloaden en uitpakken over zodra `bin/wine` er al staat.
+
+## Fix 2: "Not Responding" na het inloggen (QtWebEngine)
+
+Op Fusion **2702** is dit de fix die werkt. Fusion tekent zijn interface met QtWebEngine
+(ingebouwde Chromium); onder Wine verliest die zijn GPU-context en loopt de log vol met
+dezelfde fouten als hieronder. De UI-instelling in de config helpt op deze versie niet (zie
+de sectie daarna).
+
+```bash
+./fix-fusion-webengine-gpu.sh            # zet de vlaggen in de launcher
+./fix-fusion-webengine-gpu.sh --revert   # haalt ze weer weg
+```
+
+Dat zet in `autodesk_fusion_launcher.sh`:
+
+```bash
+export QTWEBENGINE_CHROMIUM_FLAGS="--disable-gpu --disable-gpu-compositing"
+```
+
+Alleen de interface wordt door de CPU getekend; het 3D-canvas houdt zijn eigen GPU-driver.
+In `HKCU\Environment` zetten werkt **niet** — Fusion pikt het daar niet op, het moet in de
+omgeving van de launcher. Herinstalleer je via de wizard, draai het script dan opnieuw.
+
+Getest: vóór de fix tientallen `context is marked as lost` per minuut en een hangend venster
+direct na het inloggen; erna nul fouten.
+
+## Oudere fix: UI-renderer in de config (Fusion vóór 2702)
+
+> **Geldt niet meer voor Fusion 2702.** Daar heeft `graphicsApiOptionId` de waarden `Automatic`,
+> `OpenGL`, `D3D11` en `Metal` (geen `Software` meer), en staat hij in `CompatibilityGroup`.
+> Op een verse installatie staat hij er helemaal niet in, dus `fix-fusion-ui-renderer.sh`
+> meldt `gewijzigd: 0`. Handmatig `D3D11` zetten verhielp de hang niet. Gebruik fix 2.
 
 Bij het opstarten liep Fusion steeds vast.
 
-## Het probleem
+### Het probleem
 
 De launch-log liep vol met dezelfde GPU-fout, duizenden keren herhaald:
 
@@ -43,7 +104,7 @@ ERROR:d3d_image_backing_factory.cc ... Unable to create shared handle for DXGIRe
 
 Dit zijn allemaal fouten van de **interface-laag (Qt/Chromium)**, niet van het 3D-modelleren.
 
-## De oorzaak
+### De oorzaak
 
 Fusion heeft twee losse grafische instellingen in `NMachineSpecificOptions.xml`:
 
@@ -55,7 +116,7 @@ Fusion heeft twee losse grafische instellingen in `NMachineSpecificOptions.xml`:
 Zelfs in DXVK-modus zet de cryinkfly-installer de UI standaard op OpenGL, en dát verliest
 zijn GPU-context. Het 3D-canvas stond al goed op Dx11/DXVK.
 
-## De oplossing
+### De oplossing
 
 De UI-renderer omzetten van `OpenGL` naar iets stabielers. Het 3D-canvas blijft
 GPU-versneld (Dx11/DXVK), dus tekenwerk wordt er niet trager van.
@@ -63,7 +124,7 @@ GPU-versneld (Dx11/DXVK), dus tekenwerk wordt er niet trager van.
 - **`Software`** — UI door de CPU getekend. Meest crash-bestendig. UI iets minder vloeiend. *(momenteel ingesteld)*
 - **`Direct3D11`** — UI via DXVK→Vulkan. Sneller, meestal stabiel.
 
-## Gebruik (na een herinstallatie)
+### Gebruik
 
 ```bash
 # Fusion eerst helemaal afsluiten, daarna:
@@ -87,7 +148,7 @@ Andere install-locatie? Geef het pad mee als 2e argument:
 > echte map van maakt. Dat bestand bleef daardoor op de crashende `OpenGL`-waarde staan.
 > Draai het script opnieuw als je van een oudere versie komt.
 
-## Tweede fix: Desktop en Documents komen niet in je home terecht
+## Fix 3: Desktop, Documents en Downloads komen niet in je home terecht
 
 Zelfde oorzaak, ander gevolg. `winetricks -q sandbox` verbreekt Wine's desktop-integratie:
 `Desktop` en `Documents` worden lege mappen *binnen* het prefix, los van je echte home.
@@ -122,11 +183,16 @@ hem meer.
 Opruimen gebeurt met `rmdir`, niet `rm -rf` — die weigert op een niet-lege map, dus er kan
 nooit per ongeluk werk verdwijnen. Veilig om vaker te draaien.
 
-## Machine waar dit op draait
+## Machines waar dit op draait
 
 - HP ProDesk 400 G5 · Intel UHD 630 (Mesa) · Ubuntu
 - Wine-modus: `Wine-fix` (custom build in `~/fusion-wine-build`)
 - DXVK geïnstalleerd in de prefix (d3d11/dxgi/d3d9)
+
+En (oktober 2026, Fusion 2702):
+
+- Intel Iris Plus 655 (Mesa) · Ubuntu 26.04 · Wine-fix 11.10
+- De installer kiest hier `VirtualDeviceGLCore` (OpenGL) voor het 3D-canvas
 
 ## Herkomst en licentie
 
